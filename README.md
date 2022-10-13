@@ -4,8 +4,7 @@ It works like an ImageNet/COCO pre-trained backbone, which aims at extracting mu
 
 ### Paper
 PaStaNet: Toward Human Activity Knowledge Engine (CVPR'20), [Project](http://hake-mvig.cn), [Paper](https://arxiv.org/abs/2004.00945), [Code-TF](https://github.com/DirtyHarryLYL/HAKE-Action), [Code-Torch](https://github.com/DirtyHarryLYL/HAKE-Action-Torch)
-
-Yong-Lu Li, Liang Xu, Xinpeng Liu, Xijie Huang, Yue Xu, Shiyi Wang, Hao-Shu Fang, Ze Ma, Mingyang Chen, Cewu Lu.
+xxx
 
 ### Pipeline: 
 Image/Video --> Image/frame-level PaSta feature + classification
@@ -22,11 +21,7 @@ More details can be found in [PaStaNet](https://arxiv.org/pdf/2004.00945.pdf) an
     <img src="demo/a2v-demo.gif", height="400">
 </p>
 
-<!-- ## Full demo: [[YouTube]](https://t.co/hXiAYPXEuL?amp=1), [[bilibili]](https://www.bilibili.com/video/BV1s54y1Y76s) -->
 #### Contents in demo, [[Description]](https://drive.google.com/file/d/1iZ57hKjus2lKbv1MAB-TLFrChSoWGD5e/view?usp=sharing)
-- human ID & box & skeleton
-- body part box & states
-- human actions
 
 ## Installation
  To install the overall framework of Activity2Vec, please follow [INSTALL.md](./INSTALL.md).
@@ -41,7 +36,7 @@ More details can be found in [PaStaNet](https://arxiv.org/pdf/2004.00945.pdf) an
  To start your journey with Activity2Vec, please refer to [GETTING_STARTED.md](./GETTING_STARTED.md).
 
 ## Contributors
-This branch is contributed by Hongwei Fan ([@hwfan](https://github.com/hwfan)), Xinpeng Liu, Yong-Lu Li ([@DirtyHarryLYL](https://github.com/DirtyHarryLYL)). Please contact them if there are any problems.
+This branch is contributed by Jingru Tan (), Yong-Lu Li ([@DirtyHarryLYL](https://github.com/DirtyHarryLYL)). Please contact them if there are any problems.
  
 ## Citation
  If you find our works useful, please consider citing:
@@ -52,6 +47,6 @@ This branch is contributed by Hongwei Fan ([@hwfan](https://github.com/hwfan)), 
   booktitle={CVPR},
   year={2020}
 }
-
+xxx
 ```
 
