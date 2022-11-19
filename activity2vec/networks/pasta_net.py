@@ -77,7 +77,7 @@ class pasta_res50(nn.Module):
             self.resnet50.layer3 )
 
         # Human feature extractor.
-        self.resnet_layer4 = self.resnet50.layer4
+        self.resnet_layer4 = self.resnet50.layer4###
 
         # PaSta classifier.
         self.fc7_parts   = nn.ModuleList(
@@ -251,7 +251,7 @@ class pasta_res50(nn.Module):
         if self.cfg.MODEL.PART_ROI_ENABLE:
             f_parts_roi = []
             for part_idx in range(self.num_parts):
-                f_part_roi = torch.mean(self._crop_pool_layer(head, annos['part_bboxes'][:, part_idx, :]), [2, 3])
+                f_part_roi = torch.mean(self._crop_pool_layer(head, annos['part_bboxes'][:, part_idx, :]), [2, 3])##?
                 f_parts_roi.append(f_part_roi)
             
             f_scene_for_part = f_scene.repeat([f_parts_roi[0].shape[0], 1])
@@ -265,7 +265,7 @@ class pasta_res50(nn.Module):
         else:
             f_scene_for_part = f_scene.repeat([f_human.shape[0], 1])
             f_base = torch.cat([f_human, f_scene_for_part], 1)
-            f_parts_agg = [f_base for pasta_idx in range(len(self.cfg.DATA.PASTA_NAMES))]
+            f_parts_agg = [f_base for pasta_idx in range(len(self.cfg.DATA.PASTA_NAMES))]#####?
             
         f_parts = []
         s_parts = []
@@ -294,7 +294,12 @@ class pasta_res50(nn.Module):
 
         f_pasta_language = torch.matmul(p_pasta, self.pasta_language_matrix)
         f_pasta = torch.cat([f_pasta_visual, f_pasta_language], 1)
-
+        print("f_pasta: .......................")
+        print(f_pasta.size())
+        print("p_pasta: .......................")
+        print(p_pasta.size())
+        print("p_verb:  .......................")
+        print(p_verb.size())
         # return the pasta feature and pasta probs if in test/inference mode, 
         # else return the pasta scores for loss input.
         

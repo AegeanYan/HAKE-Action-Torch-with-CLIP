@@ -82,6 +82,7 @@ class Activity2Vec():
                 keypoints = keypoints[score_filter]
                 p_pasta = p_pasta[score_filter]
                 p_verb = p_verb[score_filter]
+                
                 vis = self.vis_tool.draw(vis, bboxes, keypoints, scores, p_pasta, p_verb, human_ids)
 
                 annos_cpu['human_bboxes'] = annos_cpu['human_bboxes'].squeeze(0)
@@ -211,7 +212,7 @@ if __name__ == '__main__':
                 if vis is None:
                     vis = ori_image
                 cv2.imshow('Activity2Vec', vis)
-                cv2.waitKey(100)
+                cv2.waitKey(10)###持续时间
 
             if len(args.output) > 0:
                 basename = os.path.basename(image_path)

@@ -20,8 +20,8 @@ import json
 import copy
 from easydict import EasyDict as edict
 from tqdm import tqdm
-from turbojpeg import TurboJPEG
-reader = TurboJPEG()
+# from turbojpeg import TurboJPEG
+# reader = TurboJPEG()
 
 # Transform between object and string items.
 def obj2str(obj):
@@ -52,10 +52,11 @@ def rgba2rgb(rgba, background=(255,255,255)):
     return np.asarray(rgb, dtype='uint8')
 
 def im_read(im_path):
-    try:
-        im = reader.decode(open(im_path, 'rb').read(), 1)
-    except:
-        im = cv2.imread(im_path)
+    # try:
+    #     im = reader.decode(open(im_path, 'rb').read(), 1)
+    # except:
+    im = cv2.imread(im_path)
+
     if im is None:
         im = imageio.imread(im_path)
         if im.shape[-1] == 4:
@@ -102,8 +103,8 @@ class hake_train(torch.utils.data.Dataset):
 
         current_key_raw   = self.image_list[idx]
         image_id          = current_key_raw.decode()
-        current_data      = str2obj(self.txn_db.get(current_key_raw))
-        dataset, filename = image_id.split('/')
+        current_data      = str2obj(self.txn_db.get(current_key_raw))#read path and image from lmdb
+        dataset, filename = image_id.split('/')#read path from lmdb
         
         # Load image and normalize.
         im_path  = osp.join(self.cfg.DATA.DATA_DIR, self.image_folder_list[dataset], filename)
