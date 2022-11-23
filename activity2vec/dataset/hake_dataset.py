@@ -176,17 +176,17 @@ class hake_train(torch.utils.data.Dataset):
             this_anno = gt_annos[gt_anno_ori_idx]
             global_idx = gt_anno_aug_idx
 
-            if this_anno.keypoints is not None:
-                keypoints = this_anno.keypoints
-                height, width, _ = ori_im_shape
-                keypoints = np.array(keypoints).reshape(17, 3)
-                keypoints[:, 0] /= width
-                keypoints[:, 1] /= height
-                skeleton_image = draw_relation(keypoints[:, :2])
-                annos.skeletons[global_idx, 0] = skeleton_image
-            else:
-                skeleton_image = draw_relation(None, is_fake=True)
-                annos.skeletons[global_idx, 0] = skeleton_image
+            # if this_anno.keypoints is not None:
+            #     keypoints = this_anno.keypoints
+            #     height, width, _ = ori_im_shape
+            #     keypoints = np.array(keypoints).reshape(17, 3)
+            #     keypoints[:, 0] /= width
+            #     keypoints[:, 1] /= height
+            #     skeleton_image = draw_relation(keypoints[:, :2])
+            #     annos.skeletons[global_idx, 0] = skeleton_image
+            # else:
+            skeleton_image = draw_relation(None, is_fake=True)
+            annos.skeletons[global_idx, 0] = skeleton_image
 
             if len(this_anno.verbs) > 0:
                 annos.verbs[global_idx][np.array(this_anno.verbs)] = 1
