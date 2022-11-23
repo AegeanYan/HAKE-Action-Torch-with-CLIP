@@ -30,7 +30,7 @@ class pasta_res50(nn.Module):
             self.pasta_name2idx[part_name] = pasta_idx
             self.num_pastas.append(cfg.DATA.NUM_PASTAS[part_name.upper()])
         
-        self.num_fc          = cfg.MODEL.NUM_FC
+        self.num_fc          = cfg.MODEL.NUM_FC#default = 512
         self.scene_dim       = 1024
         self.human_dim       = 2048
         self.roi_dim         = 1024
@@ -54,7 +54,7 @@ class pasta_res50(nn.Module):
         # Building the network #
         ########################
 
-        # ResNet-style image head.
+        # ResNet-style image head.#can be dropped
         self.image_to_head = nn.Sequential(
             # pad with 0
             nn.ConstantPad2d((0, 0, 3, 3), 0),
@@ -77,7 +77,7 @@ class pasta_res50(nn.Module):
             self.resnet50.layer3 )
 
         # Human feature extractor.
-        self.resnet_layer4 = self.resnet50.layer4###
+        self.resnet_layer4 = self.resnet50.layer4###what we really need to modify
 
         # PaSta classifier.
         self.fc7_parts   = nn.ModuleList(
@@ -218,7 +218,7 @@ class pasta_res50(nn.Module):
     # image/frame --> resnet --> part RoI features + pose map feature --> PaSta (Part States) recognition --> verb (whole body action) recognition
     def forward(self, image, annos):
         # Extract the feature of skeleton image.
-        if self.cfg.MODEL.POSE_MAP:
+        if self.cfg.MODEL.POSE_MAP:##False
             skeleton_feats = []
             for pasta_idx in range(len(self.pasta_idx2name)):
                 skeleton_feat = self.pool2_flat_pose_maps[pasta_idx](annos['skeletons'])
@@ -274,7 +274,7 @@ class pasta_res50(nn.Module):
         # classify the part states
         for part_idx, f_part in enumerate(f_parts_agg):
             if self.cfg.MODEL.POSE_MAP:
-                f_part_cat  = torch.cat([f_part, skeleton_feats[part_idx]], 1)
+                f_part_cat  = torch.cat([f_part, skeleton_feats[part_idx]], 1)#no need
                 f_part_fc7  = self.fc7_parts[part_idx](f_part_cat)
             else:
                 f_part_fc7  = self.fc7_parts[part_idx](f_part)
@@ -283,7 +283,7 @@ class pasta_res50(nn.Module):
             p_part  = torch.sigmoid(s_part)
             f_parts.append(f_part_fc7)
             s_parts.append(s_part)
-            p_parts.append(p_part)
+            p_parts.append(p_part)#prob of different pasta of different part
         
         f_pasta_visual = torch.cat(f_parts, 1)
         p_pasta = torch.cat(p_parts, 1)
@@ -300,6 +300,10 @@ class pasta_res50(nn.Module):
         print(p_pasta.size())
         print("p_verb:  .......................")
         print(p_verb.size())
+        print("visual: ........................")
+        print(f_pasta_visual.size())
+        print("language: ......................")
+        print(f_pasta_language.size())
         # return the pasta feature and pasta probs if in test/inference mode, 
         # else return the pasta scores for loss input.
         

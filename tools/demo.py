@@ -211,8 +211,8 @@ if __name__ == '__main__':
             if args.show_res:
                 if vis is None:
                     vis = ori_image
-                cv2.imshow('Activity2Vec', vis)
-                cv2.waitKey(10)###持续时间
+                # cv2.imshow('Activity2Vec', vis)
+                # cv2.waitKey(10)###持续时间
 
             if len(args.output) > 0:
                 basename = os.path.basename(image_path)
@@ -237,8 +237,8 @@ if __name__ == '__main__':
             if args.show_res:
                 if vis is None:
                     vis = ori_image
-                cv2.imshow('Activity2Vec', vis)
-                cv2.waitKey(100)
+                # cv2.imshow('Activity2Vec', vis)
+                # cv2.waitKey(100)
             vises.append(cv2.cvtColor(vis, cv2.COLOR_BGR2RGB))
 
             if args.save_res:
