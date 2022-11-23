@@ -159,7 +159,7 @@ class hake_train(torch.utils.data.Dataset):
         annos.gt_flag = np.zeros((anno_num, ), dtype=int)
         annos.gt_flag[:gt_num] = 1
         annos.verbs = np.zeros((anno_num, self.cfg.DATA.NUM_VERBS), dtype=np.float32)
-        annos.human_bboxes = np.zeros((anno_num, 4), dtype=np.float32)
+        annos.human_bboxes = np.zeros((anno_num, 4), dtype=np.float32)#4 digits can describe a bbox
         annos.part_bboxes = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS, 4), dtype=np.float32)
         annos.pasta = edict()
         annos.pasta.foot = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.FOOT), dtype=np.float32)
@@ -168,7 +168,7 @@ class hake_train(torch.utils.data.Dataset):
         annos.pasta.hand = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HAND), dtype=np.float32)
         annos.pasta.arm = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.ARM), dtype=np.float32)
         annos.pasta.head = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HEAD), dtype=np.float32)
-        annos.pasta.binary = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS), dtype=np.float32)
+        annos.pasta.binary = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS), dtype=np.float32)#？
         annos.skeletons = np.zeros((anno_num, 1, self.cfg.DATA.SKELETON_SIZE, self.cfg.DATA.SKELETON_SIZE), dtype=np.float32)
 
         # Load the annotations in one batch.
