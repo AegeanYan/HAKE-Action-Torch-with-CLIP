@@ -58,7 +58,7 @@ def a2v_loss(cfg, s_parts, s_verb, annos, pasta_weights, pasta_name2idx):
         loss_func = sigmoid_focal_loss
     else:
         raise NotImplementedError
-
+    
     for module_name in cfg.MODEL.MODULE_TRAINED:
         if module_name != 'verb':
             pasta_idx = pasta_name2idx[module_name]
@@ -67,12 +67,15 @@ def a2v_loss(cfg, s_parts, s_verb, annos, pasta_weights, pasta_name2idx):
             weight = pasta_weights[module_name].repeat(s_parts[pasta_idx].shape[0], 1)
         else:
             preds = s_verb
-            labels = annos['verbs']
+            labels = annos['verbs']#part_num  * state_num
             weight = pasta_weights[module_name].repeat(s_verb.shape[0], 1)
         
+        # print("preds:............:")
+        # print(preds)
         loss = loss_func(preds, 
                          labels, 
-                         weight=weight if cfg.TRAIN.WITH_LOSS_WTS else None, 
+                        #  weight=weight if cfg.TRAIN.WITH_LOSS_WTS else None, 
+                         None,
                          reduction='mean'
                          )
         losses.append(loss)

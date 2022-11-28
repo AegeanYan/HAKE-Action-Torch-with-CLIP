@@ -15,6 +15,8 @@ import os
 import os
 import clip
 import torch
+from PIL import Image , ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 #from torchvision.datasets import CIFAR100
 
 
@@ -68,6 +70,7 @@ class pasta_res50(nn.Module):
         # The person's [classes] is [doing].
         # self.classes = ['head', 'left arm', 'right arm', 'left hand', 'right hand', 'hip', 'left leg', 'right leg', 'left foot', 'right foot']
         self.classes = ['head', 'arm', 'hand', 'hip', 'leg', 'foot']
+        self.classes.reverse()#conform to config.py
         self.characteristics = {
         'head' :  {'eating', 'inspecting', 'talking with something', 'talking to something', 'closing with something', 'kissing', 'put somthing over', 'licking', 'blowing', 'drinking with something', 'smelling', 'wearing', 'listening', 'doing nothing'}, 
         #'left arm' : {'carrying something', 'closing to something', 'hugging', 'swinging', 'doing nothing'}, 
@@ -90,7 +93,7 @@ class pasta_res50(nn.Module):
         # Load the model
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, self.preprocess = clip.load('ViT-B/32', device)
-
+        self.model
         # Download the dataset
         # cifar100 = CIFAR100(root=os.path.expanduser("~/.cache"), download=True, train=False)
 
@@ -179,21 +182,21 @@ class pasta_res50(nn.Module):
         # Freeze the useless params. #
         ##############################
 
-        if cfg.TRAIN.FREEZE_BACKBONE:
-            for p in self.image_to_head.parameters():
-                p.requires_grad = False
-            if cfg.TRAIN.FREEZE_RES4:
-                for p in self.resnet_layer4.parameters():
-                    p.requires_grad = False
+        # if cfg.TRAIN.FREEZE_BACKBONE:
+        #     for p in self.image_to_head.parameters():
+        #         p.requires_grad = False
+        #     if cfg.TRAIN.FREEZE_RES4:
+        #         for p in self.resnet_layer4.parameters():
+        #             p.requires_grad = False
             
-        for pasta_idx in range(len(self.pasta_idx2name)):
-            for p in self.fc7_parts[pasta_idx].parameters():
-                p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
-            for p in self.part_cls_scores[pasta_idx].parameters():
-                p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
+        # for pasta_idx in range(len(self.pasta_idx2name)):
+        #     for p in self.fc7_parts[pasta_idx].parameters():
+        #         p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
+        #     for p in self.part_cls_scores[pasta_idx].parameters():
+        #         p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
 
-        for p in self.verb_cls_scores.parameters():
-            p.requires_grad = 'verb' in self.module_trained
+        # for p in self.verb_cls_scores.parameters():
+        #     p.requires_grad = 'verb' in self.module_trained
 
         ###############################################
         # Building the extractor of pose map feature. #
@@ -353,47 +356,63 @@ class pasta_res50(nn.Module):
         # p_part = sigmoid(s_part)
         
 
-        # text_inputs = torch.cat([clip.tokenizor(f"the person's {classes}")])
-        for classes in self.classes:
-            image_input = self.preprocess(image).unsqueeze(0)
-            text_inputs = [clip.tokenizor(f"there is no {classes} in the image")]
+        # text_inputs = torch.cat([clip.tokenize(f"the person's {classes}")])
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        for class_id, classes in enumerate(self.classes):
+            try:
+                ims = Image.open(image[0])
+            except Exception as e:
+                print(image[0],e)
+            image_input = self.preprocess(Image.open(image[0])).unsqueeze(0).to(device)
+            # text_inputs = [clip.tokenize(f"there is no {classes} in the image")].to(device)
+            # for characteristics in self.characteristics[classes]:
+            #     text_inputs = torch.cat([clip.tokenize(f"the person's {classes} is {characteristics}")])
+            text_inputs = [clip.tokenize(f"there is no {classes} in the image")]
             for characteristics in self.characteristics[classes]:
-                text_inputs = torch.cat([clip.tokenizor(f"the person's {classes} is {characteristics}")])
+                text_inputs.append(clip.tokenize(f"the person's {classes} is {characteristics}"))
+            text_inputs = torch.cat(text_inputs,dim=0).to(device)
+
             with torch.no_grad():
-                image_features = model.encode_image(image_input)
-                text_features = model.encode_text(text_inputs)
-            image_features /= image_features.norm(dim=-1, keepdim=True)
-            text_features /= text_features.norm(dim=-1, keepdim=True)
+                image_features = self.model.encode_image(image_input)
+                text_features = self.model.encode_text(text_inputs)
+            image_features = image_features.float()
+            text_features = text_features.float()
+            image_features = self.clip2pasta[class_id](image_features)
+            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
             similarity = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-            f_part = self.clip2pasta[classes](image_features)
-            now_num_pasta = len(text_features)
+            now_num_pasta = (len(similarity[0]) - 1)
             s_part = torch.zeros(now_num_pasta)
             for idx in range(now_num_pasta):
                 if idx == 0:
-                    s_part[now_num_pasta - 1] = similarity[idx]
+                    s_part[now_num_pasta - 1] = similarity[0][0] + similarity[0][now_num_pasta]
                 else:
-                    s_part[idx - 1] = similarity[idx]
+                    s_part[idx - 1] = similarity[0][idx]
             p_part  = torch.sigmoid(s_part)
-            f_parts.append(f_part)
-            s_parts.append(s_part)
+            f_parts.append(image_features)
+            s_parts.append(s_part.to(device))
             p_parts.append(p_part)
         
         f_pasta_visual = torch.cat(f_parts, 1)
-        p_pasta = torch.cat(p_parts, 1)
+        p_pasta = torch.cat(p_parts, 0)
 
         # s_verb: 1 x num_verbs
-
+        # print(f_pasta_visual.size()) 1*3072
+        # print(p_pasta.size()) 93
+        # print(len(self.pasta_idx2name) * self.num_fc) 3072
         # classify the verbs
         s_verb = self.verb_cls_scores(f_pasta_visual)
         p_verb = torch.sigmoid(s_verb)
 
-        f_pasta_language = torch.matmul(p_pasta, self.pasta_language_matrix)
-        f_pasta = torch.cat([f_pasta_visual, f_pasta_language], 1)
+        f_pasta_language = torch.matmul(p_pasta.to(device), self.pasta_language_matrix)
 
+        # print(f_pasta_language.size()) 1536
+        f_pasta_language = f_pasta_language.view(1,-1)
+        f_pasta = torch.cat([f_pasta_visual, f_pasta_language], 1)
+        
         # return the pasta feature and pasta probs if in test/inference mode, 
         # else return the pasta scores for loss input.
-        
         if not self.training:
-            return f_pasta, p_pasta, p_verb
+            return f_pasta, p_pasta.to(device), p_verb
         else:
-            return s_parts, s_verb
+            return s_parts, s_verb.to(device)

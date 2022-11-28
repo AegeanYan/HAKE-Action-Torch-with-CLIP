@@ -130,6 +130,7 @@ class hake_train(torch.utils.data.Dataset):
         im       = cv2.resize(im, (int(ratio*im_shape[1]), int(ratio*im_shape[0])))
         im_shape = im.shape
         image    = im.transpose(2, 0, 1)
+        
 
         # Collect the positive and negative annotations.
         gt_annos, neg_annos = [], []
@@ -155,23 +156,41 @@ class hake_train(torch.utils.data.Dataset):
         gt_num, neg_num = len(gt_anno_idxs), len(neg_anno_idxs)
         anno_num = gt_num + neg_num
         
+        # annos = edict()
+        # annos.gt_flag = np.zeros((anno_num, ), dtype=int)
+        # annos.gt_flag[:gt_num] = 1
+        # annos.verbs = np.zeros((anno_num, self.cfg.DATA.NUM_VERBS), dtype=np.float32)
+        # annos.human_bboxes = np.zeros((anno_num, 4), dtype=np.float32)#4 digits can describe a bbox
+        # annos.part_bboxes = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS, 4), dtype=np.float32)
+        # annos.pasta = edict()
+        # annos.pasta.foot = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.FOOT), dtype=np.float32)
+        # annos.pasta.leg = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.LEG), dtype=np.float32)
+        # annos.pasta.hip = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HIP), dtype=np.float32)
+        # annos.pasta.hand = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HAND), dtype=np.float32)
+        # annos.pasta.arm = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.ARM), dtype=np.float32)
+        # annos.pasta.head = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HEAD), dtype=np.float32)
+        # annos.pasta.binary = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS), dtype=np.float32)#？
+        # annos.skeletons = np.zeros((anno_num, 1, self.cfg.DATA.SKELETON_SIZE, self.cfg.DATA.SKELETON_SIZE), dtype=np.float32)
+        
         annos = edict()
         annos.gt_flag = np.zeros((anno_num, ), dtype=int)
         annos.gt_flag[:gt_num] = 1
-        annos.verbs = np.zeros((anno_num, self.cfg.DATA.NUM_VERBS), dtype=np.float32)
+        annos.verbs = np.zeros(self.cfg.DATA.NUM_VERBS, dtype=np.float32)
         annos.human_bboxes = np.zeros((anno_num, 4), dtype=np.float32)#4 digits can describe a bbox
         annos.part_bboxes = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS, 4), dtype=np.float32)
+        #the first idea is that OR all positive anno for pasta
         annos.pasta = edict()
-        annos.pasta.foot = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.FOOT), dtype=np.float32)
-        annos.pasta.leg = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.LEG), dtype=np.float32)
-        annos.pasta.hip = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HIP), dtype=np.float32)
-        annos.pasta.hand = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HAND), dtype=np.float32)
-        annos.pasta.arm = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.ARM), dtype=np.float32)
-        annos.pasta.head = np.zeros((anno_num, self.cfg.DATA.NUM_PASTAS.HEAD), dtype=np.float32)
-        annos.pasta.binary = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS), dtype=np.float32)#？
+        annos.pasta.foot = np.zeros(self.cfg.DATA.NUM_PASTAS.FOOT, dtype=np.float32)
+        annos.pasta.leg = np.zeros(self.cfg.DATA.NUM_PASTAS.LEG, dtype=np.float32)
+        annos.pasta.hip = np.zeros(self.cfg.DATA.NUM_PASTAS.HIP, dtype=np.float32)
+        annos.pasta.hand = np.zeros(self.cfg.DATA.NUM_PASTAS.HAND, dtype=np.float32)
+        annos.pasta.arm = np.zeros(self.cfg.DATA.NUM_PASTAS.ARM, dtype=np.float32)
+        annos.pasta.head = np.zeros(self.cfg.DATA.NUM_PASTAS.HEAD, dtype=np.float32)
+        annos.pasta.binary = np.zeros(self.cfg.DATA.NUM_PARTS, dtype=np.float32)
         annos.skeletons = np.zeros((anno_num, 1, self.cfg.DATA.SKELETON_SIZE, self.cfg.DATA.SKELETON_SIZE), dtype=np.float32)
 
         # Load the annotations in one batch.
+        verb_flag = False
         for gt_anno_aug_idx, gt_anno_ori_idx in enumerate(gt_anno_idxs):
             this_anno = gt_annos[gt_anno_ori_idx]
             global_idx = gt_anno_aug_idx
@@ -189,51 +208,60 @@ class hake_train(torch.utils.data.Dataset):
             annos.skeletons[global_idx, 0] = skeleton_image
 
             if len(this_anno.verbs) > 0:
-                annos.verbs[global_idx][np.array(this_anno.verbs)] = 1
+                annos.verbs[np.array(this_anno.verbs)] = 1
+                verb_flag = True
             else:
-                annos.verbs[global_idx][57] = 1
+                pass
+                #annos.verbs[global_idx][57] = 1
             annos.human_bboxes[global_idx] = np.array(this_anno.human_bbox)
-            if this_anno.part_bboxes is None:
-                annos.part_bboxes[global_idx] = np.tile(this_anno.human_bbox, [10, 1])
-            else:
-                annos.part_bboxes[global_idx] = np.array(this_anno.part_bboxes[:, 1:])
-            annos.pasta.foot[global_idx][np.array(this_anno.pasta.foot)] = 1
-            annos.pasta.leg[global_idx][np.array(this_anno.pasta.leg)] = 1
-            annos.pasta.hip[global_idx][np.array(this_anno.pasta.hip)] = 1
-            annos.pasta.hand[global_idx][np.array(this_anno.pasta.hand)] = 1
-            annos.pasta.arm[global_idx][np.array(this_anno.pasta.arm)] = 1
-            annos.pasta.head[global_idx][np.array(this_anno.pasta.head)] = 1
+
+            # if this_anno.part_bboxes is None:
+            annos.part_bboxes[global_idx] = np.tile(this_anno.human_bbox, [10, 1])
+            # else:
+            #     annos.part_bboxes[global_idx] = np.array(this_anno.part_bboxes[:, 1:])
+
+            annos.pasta.foot[np.array(this_anno.pasta.foot)] = 1
+            annos.pasta.leg[np.array(this_anno.pasta.leg)] = 1
+            annos.pasta.hip[np.array(this_anno.pasta.hip)] = 1
+            annos.pasta.hand[np.array(this_anno.pasta.hand)] = 1
+            annos.pasta.arm[np.array(this_anno.pasta.arm)] = 1
+            annos.pasta.head[np.array(this_anno.pasta.head)] = 1
             if len(this_anno.pasta.binary) > 0:
-                annos.pasta.binary[global_idx][np.array(this_anno.pasta.binary)] = 1
+                annos.pasta.binary[np.array(this_anno.pasta.binary)] = 1#what is binary?
 
-        for neg_anno_aug_idx, neg_anno_ori_idx in enumerate(neg_anno_idxs):
-            this_anno = neg_annos[neg_anno_ori_idx]
-            global_idx = neg_anno_aug_idx + gt_num
-
-            if this_anno.keypoints is not None:
-                keypoints = this_anno.keypoints
-                height, width, _ = ori_im_shape
-                keypoints = np.array(keypoints).astype(np.float32).reshape(17, 3)
-                keypoints[:, 0] /= width
-                keypoints[:, 1] /= height
-                skeleton_image = draw_relation(keypoints[:, :2])
-                annos.skeletons[global_idx, 0] = skeleton_image
-            else:
-                skeleton_image = draw_relation(None, is_fake=True)
-                annos.skeletons[global_idx, 0] = skeleton_image
-
+        if(verb_flag == False):
             annos.verbs[global_idx][57] = 1
-            annos.human_bboxes[global_idx] = np.array(this_anno.human_bbox)
-            if this_anno.part_bboxes is None:
-                annos.part_bboxes[global_idx] = np.tile(this_anno.human_bbox, [10, 1])
-            else:
-                annos.part_bboxes[global_idx] = np.array(this_anno.part_bboxes[:, 1:])
-            annos.pasta.foot[global_idx][-1] = 1
-            annos.pasta.leg[global_idx][-1] = 1
-            annos.pasta.hip[global_idx][-1] = 1
-            annos.pasta.hand[global_idx][-1] = 1
-            annos.pasta.arm[global_idx][-1] = 1
-            annos.pasta.head[global_idx][-1] = 1
+        
+        # for neg_anno_aug_idx, neg_anno_ori_idx in enumerate(neg_anno_idxs):
+        #     this_anno = neg_annos[neg_anno_ori_idx]
+        #     global_idx = neg_anno_aug_idx + gt_num
+
+        #     # if this_anno.keypoints is not None:
+        #     #     keypoints = this_anno.keypoints
+        #     #     height, width, _ = ori_im_shape
+        #     #     keypoints = np.array(keypoints).astype(np.float32).reshape(17, 3)
+        #     #     keypoints[:, 0] /= width
+        #     #     keypoints[:, 1] /= height
+        #     #     skeleton_image = draw_relation(keypoints[:, :2])
+        #     #     annos.skeletons[global_idx, 0] = skeleton_image
+        #     # else:
+        #     skeleton_image = draw_relation(None, is_fake=True)
+        #     annos.skeletons[global_idx, 0] = skeleton_image
+
+        #     annos.verbs[global_idx][57] = 1
+        #     annos.human_bboxes[global_idx] = np.array(this_anno.human_bbox)
+
+        #     # if this_anno.part_bboxes is None:
+        #     annos.part_bboxes[global_idx] = np.tile(this_anno.human_bbox, [10, 1])
+        #     # else:
+        #     #     annos.part_bboxes[global_idx] = np.array(this_anno.part_bboxes[:, 1:])
+
+        #     annos.pasta.foot[global_idx][-1] = 1
+        #     annos.pasta.leg[global_idx][-1] = 1
+        #     annos.pasta.hip[global_idx][-1] = 1
+        #     annos.pasta.hand[global_idx][-1] = 1
+        #     annos.pasta.arm[global_idx][-1] = 1
+        #     annos.pasta.head[global_idx][-1] = 1
 
         annos.human_bboxes    *= ratio
         annos.part_bboxes     *= ratio
@@ -243,7 +271,7 @@ class hake_train(torch.utils.data.Dataset):
         annos.part_bboxes[:, :, 2] = np.minimum(annos.part_bboxes[:, :, 2], im_shape[1])
         annos.part_bboxes[:, :, 3] = np.minimum(annos.part_bboxes[:, :, 3], im_shape[0])
 
-        return image, annos
+        return im_path, annos
 
 
 class hake_test(torch.utils.data.Dataset):
@@ -277,7 +305,7 @@ class hake_test(torch.utils.data.Dataset):
         anno_num  = len(current_data)
         annos.human_bboxes = np.zeros((anno_num, 4), dtype=np.float32)
         annos.part_bboxes = np.zeros((anno_num, self.cfg.DATA.NUM_PARTS, 4), dtype=np.float32)
-        annos.human_scores = np.zeros((anno_num, ), dtype=np.float32)
+        annos.human_scores = np.zeros((1, ), dtype=np.float32)
         annos.skeletons = np.zeros((anno_num, 1, self.cfg.DATA.SKELETON_SIZE, self.cfg.DATA.SKELETON_SIZE), dtype=np.float32)
 
         # Load the predicted annotations in one batch.
@@ -295,10 +323,10 @@ class hake_test(torch.utils.data.Dataset):
                 annos.skeletons[anno_idx, 0] = skeleton_image
             annos.human_bboxes[anno_idx] = np.array(anno.human_bbox)
             annos.part_bboxes[anno_idx] = anno.part_bboxes
-            annos.human_scores[anno_idx] = anno.human_score
+            annos.human_scores[0] = anno.human_score
         annos.part_bboxes[:, :, 0] = np.maximum(annos.part_bboxes[:, :, 0], 0)
         annos.part_bboxes[:, :, 1] = np.maximum(annos.part_bboxes[:, :, 1], 0)
         annos.part_bboxes[:, :, 2] = np.minimum(annos.part_bboxes[:, :, 2], im_shape[1])
         annos.part_bboxes[:, :, 3] = np.minimum(annos.part_bboxes[:, :, 3], im_shape[0])
         
-        return image, annos, image_id
+        return im_path, annos, image_id

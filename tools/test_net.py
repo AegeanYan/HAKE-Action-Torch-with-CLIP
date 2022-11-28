@@ -36,7 +36,7 @@ def test(cfg, net, test_loader, output_dir, logger):
         if human_bboxes.shape[1] == 0:
             continue
 
-        image = image.cuda(non_blocking=True)
+        # image = image.cuda(non_blocking=True)
         for key in annos:
             if isinstance(annos[key], dict):
                 for sub_key in annos[key]:
@@ -49,8 +49,11 @@ def test(cfg, net, test_loader, output_dir, logger):
         annos['part_bboxes'] = torch.cat([torch.zeros(annos['part_bboxes'].shape[0], annos['part_bboxes'].shape[1], 1).cuda(), annos['part_bboxes']], 2)
 
         _, p_pasta, p_verb = net(image, annos)
+        p_pasta = p_pasta.view(1,-1)
         if cfg.TEST.HUMAN_SCORE_ENHANCE:
             human_scores = annos['human_scores'].unsqueeze(-1)
+            # print(p_pasta.size())
+            # print(human_scores)
             p_pasta *= human_scores
             p_verb *= human_scores
         p_pasta = p_pasta.detach().cpu().numpy()

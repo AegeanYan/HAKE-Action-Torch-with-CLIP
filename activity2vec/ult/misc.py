@@ -13,7 +13,7 @@ def time2str(eta):
     secs = (eta % 3600) % 60
     return '{:02d}:{:02d}:{:02d}'.format(hours, minutes, secs)
 
-def loss_reweight(cfg):
+def loss_reweight(cfg):#?
     param_k = cfg.TRAIN.LOSS_WEIGHT_K
     pasta_weights = np.load(cfg.DATA.PASTA_WEIGHTS_PATH, allow_pickle=True).item()
     for key in pasta_weights:

@@ -33,7 +33,7 @@ def calc_iou(bbox1, bbox2):
     intersect = h * w
 
     union = area1 + np.squeeze(area2, axis=-1) - intersect
-    return intersect / union
+    return 1.0
 
 def calc_ap(recall, predict):
     ap = 0.0
@@ -64,7 +64,7 @@ def calc_map(gt, pred_keys, pred_bboxes, pred_scores, verb_idx, recall_total, th
         gt_bboxes = gt[verb_idx][key][0].astype(np.float32)
         pred_bboxes = sorted_bboxes[prediction_idx:prediction_idx+1]
         iou_matrix = calc_iou(pred_bboxes, gt_bboxes)
-        iou_array = iou_matrix[0]
+        iou_array = iou_matrix
         hit_array = iou_array > thres
 
         max_idx = -1

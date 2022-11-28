@@ -51,7 +51,7 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
             data_timer.toc()
             net_timer.tic()
 
-            image = image.cuda(non_blocking=True)
+            #image = image.cuda(non_blocking=True)
 
             for key in annos:
                 if isinstance(annos[key], dict):
@@ -61,13 +61,15 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
                 else:
                     annos[key] = annos[key].cuda()
                     annos[key] = annos[key].squeeze(0)
-            annos['human_bboxes'] = torch.cat([torch.zeros(annos['human_bboxes'].shape[0], 1).cuda(), annos['human_bboxes']], 1)
-            annos['part_bboxes'] = torch.cat([torch.zeros(annos['part_bboxes'].shape[0], annos['part_bboxes'].shape[1], 1).cuda(), annos['part_bboxes']], 2)
-            s_parts, s_verb = net(image, annos)
-            loss = a2v_loss(cfg, s_parts, s_verb, annos, pasta_weights, net.pasta_name2idx)
-
-            optimizer.zero_grad()
-            loss.backward()
+            # annos['human_bboxes'] = torch.cat([torch.zeros(annos['human_bboxes'].shape[0], 1).cuda(), annos['human_bboxes']], 1)
+            # annos['part_bboxes'] = torch.cat([torch.zeros(annos['part_bboxes'].shape[0], annos['part_bboxes'].shape[1], 1).cuda(), annos['part_bboxes']], 2)
+            
+            with torch.autograd.detect_anomaly():
+                s_parts, s_verb = net(image, annos)
+                loss = a2v_loss(cfg, s_parts, s_verb, annos, pasta_weights, net.pasta_name2idx)
+                optimizer.zero_grad()
+                loss.backward(retain_graph=True)
+            
             optimizer.step()
 
             net_timer.toc()
@@ -81,6 +83,7 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
 
             # save weight if necessary
             if global_iter % cfg.TRAIN.CHECKPOINT_INTERVAL == 0:
+            #if global_iter % 100 == 0:
                 loggers.train.info("==> Saving weight: iteration {}".format(global_iter))
                 weight_path = os.path.join(cfg.WEIGHT_DIR, "model_{}.pth".format(global_iter))
                 save_model(net, optimizer, scheduler, global_iter, weight_path)
@@ -184,6 +187,7 @@ if __name__ == "__main__":
         scheduler = None
 
     global_iter = 0
+    
     # load weight if continue training
     if len(cfg.TRAIN.CHECKPOINT_PATH) > 0:
         loggers.train.info("==> Loading weight from: {}".format(cfg.TRAIN.CHECKPOINT_PATH), cfg)
