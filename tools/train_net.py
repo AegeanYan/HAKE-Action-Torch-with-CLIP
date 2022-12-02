@@ -82,8 +82,8 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
             global_timer.toc()
 
             # save weight if necessary
-            if global_iter % cfg.TRAIN.CHECKPOINT_INTERVAL == 0:
-            #if global_iter % 100 == 0:
+            #if global_iter % cfg.TRAIN.CHECKPOINT_INTERVAL == 0:
+            if global_iter % 10 == 0:
                 loggers.train.info("==> Saving weight: iteration {}".format(global_iter))
                 weight_path = os.path.join(cfg.WEIGHT_DIR, "model_{}.pth".format(global_iter))
                 save_model(net, optimizer, scheduler, global_iter, weight_path)

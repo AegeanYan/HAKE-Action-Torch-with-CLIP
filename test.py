@@ -19,8 +19,13 @@ import torch
 # current_data = str2obj(txn_db.get(current_key_raw))
 # print(current_data[1])
 # a = pickle.load(open('/data/haotian/HAKE-Action-Torch/Data/metadata/gt_pasta_data.pkl','rb'))
-# print(a.key())
-device = "cuda" if torch.cuda.is_available() else "cpu"
-text_inputs = [clip.tokenize(f"there is no part in the image")]
-out = torch.cat(text_inputs,dim = 0)
-print(out.size())
+# print(a[0][0])
+
+# device = "cuda" if torch.cuda.is_available() else "cpu"
+# text_inputs = [clip.tokenize(f"there is no part in the image")]
+# out = torch.cat(text_inputs,dim = 0)
+# print(out.size())
+
+from tools.benchmark import benchmark
+
+benchmark()

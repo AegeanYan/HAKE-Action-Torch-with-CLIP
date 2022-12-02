@@ -70,8 +70,8 @@ def calc_map(gt, pred_keys, pred_bboxes, pred_scores, verb_idx, recall_total, th
         max_idx = -1
         max_iou = 0
         for hit_idx in np.where(hit_array == 1)[0]:
-            if iou_array[hit_idx] > max_iou and gt[verb_idx][key][1][hit_idx] == 0:
-                max_iou = iou_array[hit_idx]
+            if iou_array > max_iou and gt[verb_idx][key][1][hit_idx] == 0:
+                max_iou = iou_array
                 max_idx = hit_idx
         if max_idx != -1:
             predict_array[prediction_idx] = 1
@@ -160,6 +160,9 @@ def benchmark(results_dir, cfg, logger):
     pasta_score_list = np.concatenate(pasta_score_list, axis=0)
     verb_score_list = np.concatenate(verb_score_list, axis=0)
     
+
+
+
     logger.info('==> Evaluating ...')
     map_list = []
     for pasta in tqdm(range(sum(list(cfg.DATA.NUM_PASTAS.values()))), ncols=40):

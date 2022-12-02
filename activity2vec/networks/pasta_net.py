@@ -380,14 +380,15 @@ class pasta_res50(nn.Module):
             image_features = self.clip2pasta[class_id](image_features)
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            similarity = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+            similarity = (100.0 * image_features @ text_features.T)
             now_num_pasta = (len(similarity[0]) - 1)
             s_part = torch.zeros(now_num_pasta)
             for idx in range(now_num_pasta):
                 if idx == 0:
-                    s_part[now_num_pasta - 1] = similarity[0][0] + similarity[0][now_num_pasta]
+                    s_part[now_num_pasta - 1] = (similarity[0][0] + similarity[0][now_num_pasta])/2
                 else:
                     s_part[idx - 1] = similarity[0][idx]
+            s_part = s_part - torch.mean(s_part)
             p_part  = torch.sigmoid(s_part)
             f_parts.append(image_features)
             s_parts.append(s_part.to(device))
@@ -395,6 +396,8 @@ class pasta_res50(nn.Module):
         
         f_pasta_visual = torch.cat(f_parts, 1)
         p_pasta = torch.cat(p_parts, 0)
+
+
 
         # s_verb: 1 x num_verbs
         # print(f_pasta_visual.size()) 1*3072
@@ -412,7 +415,11 @@ class pasta_res50(nn.Module):
         
         # return the pasta feature and pasta probs if in test/inference mode, 
         # else return the pasta scores for loss input.
+        # print(p_pasta)      
+        import ipdb; ipdb.set_trace()
+
         if not self.training:
             return f_pasta, p_pasta.to(device), p_verb
         else:
             return s_parts, s_verb.to(device)
+        
