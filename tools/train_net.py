@@ -82,8 +82,8 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
             global_timer.toc()
 
             # save weight if necessary
-            #if global_iter % cfg.TRAIN.CHECKPOINT_INTERVAL == 0:
-            if global_iter % 10 == 0:
+            if global_iter % cfg.TRAIN.CHECKPOINT_INTERVAL == 0:
+            # if global_iter % 10 == 0:
                 loggers.train.info("==> Saving weight: iteration {}".format(global_iter))
                 weight_path = os.path.join(cfg.WEIGHT_DIR, "model_{}.pth".format(global_iter))
                 save_model(net, optimizer, scheduler, global_iter, weight_path)
@@ -98,14 +98,15 @@ def train(cfg, net, train_loader, test_loader, optimizer, scheduler, global_iter
                     net.eval()
                     with torch.no_grad():
                         test(cfg, net, test_loader, output_dir, loggers.test)
-                        pasta_map, verb_map, map_w_no_interaction_list, map_wo_no_interaction_list = benchmark(output_dir, cfg, loggers.test)
+                        # pasta_map, verb_map, map_w_no_interaction_list, map_wo_no_interaction_list = benchmark(output_dir, cfg, loggers.test)
+                        benchmark(output_dir, cfg, loggers.test)
                         
-                        if len(cfg.MODEL.MODULE_TRAINED) == 1 and cfg.MODEL.MODULE_TRAINED[0] != 'verb':
-                            loss_curve.log({'iteration': global_iter, 
-                                            '{:s}_map_w_no_interaction'.format(cfg.MODEL.MODULE_TRAINED[0]): map_w_no_interaction_list[net.pasta_name2idx[cfg.MODEL.MODULE_TRAINED[0]]], 
-                                            '{:s}_map_wo_no_interaction'.format(cfg.MODEL.MODULE_TRAINED[0]): map_wo_no_interaction_list[net.pasta_name2idx[cfg.MODEL.MODULE_TRAINED[0]]]})
-                        else:
-                            loss_curve.log({'iteration': global_iter, 'pasta_map': pasta_map, 'verb_map': verb_map})
+                        # if len(cfg.MODEL.MODULE_TRAINED) == 1 and cfg.MODEL.MODULE_TRAINED[0] != 'verb':
+                        #     loss_curve.log({'iteration': global_iter, 
+                        #                     '{:s}_map_w_no_interaction'.format(cfg.MODEL.MODULE_TRAINED[0]): map_w_no_interaction_list[net.pasta_name2idx[cfg.MODEL.MODULE_TRAINED[0]]], 
+                        #                     '{:s}_map_wo_no_interaction'.format(cfg.MODEL.MODULE_TRAINED[0]): map_wo_no_interaction_list[net.pasta_name2idx[cfg.MODEL.MODULE_TRAINED[0]]]})
+                        # else:
+                        #     loss_curve.log({'iteration': global_iter, 'pasta_map': pasta_map, 'verb_map': verb_map})
                     net.train()
                     torch.cuda.empty_cache()
                     

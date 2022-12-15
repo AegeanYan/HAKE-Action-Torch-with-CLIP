@@ -33,7 +33,7 @@ def calc_iou(bbox1, bbox2):
     intersect = h * w
 
     union = area1 + np.squeeze(area2, axis=-1) - intersect
-    return 1.0
+    return intersect / union
 
 def calc_ap(recall, predict):
     ap = 0.0
@@ -64,14 +64,14 @@ def calc_map(gt, pred_keys, pred_bboxes, pred_scores, verb_idx, recall_total, th
         gt_bboxes = gt[verb_idx][key][0].astype(np.float32)
         pred_bboxes = sorted_bboxes[prediction_idx:prediction_idx+1]
         iou_matrix = calc_iou(pred_bboxes, gt_bboxes)
-        iou_array = iou_matrix
+        iou_array = iou_matrix[0]
         hit_array = iou_array > thres
 
         max_idx = -1
         max_iou = 0
         for hit_idx in np.where(hit_array == 1)[0]:
-            if iou_array > max_iou and gt[verb_idx][key][1][hit_idx] == 0:
-                max_iou = iou_array
+            if iou_array[hit_idx] > max_iou and gt[verb_idx][key][1][hit_idx] == 0:
+                max_iou = iou_array[hit_idx]
                 max_idx = hit_idx
         if max_idx != -1:
             predict_array[prediction_idx] = 1
@@ -88,6 +88,32 @@ def load_list(list_txt):
     for line in open(list_txt, 'r'):
         lines.append(line.strip())
     return lines
+
+def my_calc_ap(gt, pred):
+
+    assert gt.shape[0] == pred.shape[0]
+
+    hit = []
+    idx = np.argsort(pred)[::-1]
+
+    for i in idx:
+        if gt[i] == 1:
+            hit.append(1)
+        else:
+            hit.append(0)
+
+    npos = gt.sum()
+
+    bottom  = np.array(range(len(hit))) + 1
+    hit     = np.cumsum(hit)
+    rec     = hit / npos
+    prec    = hit / bottom
+    ap = 0.0
+    for i in range(11):
+        mask = rec >= (i / 10.0)
+        if np.sum(mask) > 0:
+            ap += np.max(prec[mask]) / 11.0
+    return ap
 
 def benchmark(results_dir, cfg, logger):
     gt_pasta_data = pickle.load(open(cfg.DATA.TEST_GT_PASTA_PATH, 'rb'))
@@ -133,18 +159,18 @@ def benchmark(results_dir, cfg, logger):
                 f = h5py.File(os.path.join(root, result_file_path),'r')
                 key = root.split('/')[-1] + '/' + os.path.splitext(result_file_path)[0]
 
-                human_bboxes = np.array(f['human_bboxes'])[0]
+                # human_bboxes = np.array(f['human_bboxes'])[0]
                 pasta_score = np.array(f['pasta_score'])
                 verb_score = np.array(f['verb_score'])
                 f.close()
 
-                this_key_list = [key for _ in range(len(human_bboxes))]
+                this_key_list = [key]
                 key_list.extend(this_key_list)
 
-                if human_bboxes_list is None:
-                    human_bboxes_list = [human_bboxes]
-                else:
-                    human_bboxes_list.append(human_bboxes)
+                # if human_bboxes_list is None:
+                #     human_bboxes_list = [human_bboxes]
+                # else:
+                #     human_bboxes_list.append(human_bboxes)
                 
                 if pasta_score_list is None:
                     pasta_score_list = [pasta_score]
@@ -156,56 +182,112 @@ def benchmark(results_dir, cfg, logger):
                 else:
                     verb_score_list.append(verb_score)
     key_list = np.array(key_list)
-    human_bboxes_list = np.concatenate(human_bboxes_list, axis=0)
+    # human_bboxes_list = np.concatenate(human_bboxes_list, axis=0)
     pasta_score_list = np.concatenate(pasta_score_list, axis=0)
     verb_score_list = np.concatenate(verb_score_list, axis=0)
+
+    # pasta_score_list  (test_num, 93)
+    # verb_score_list   (test_num, 157)
+
+    ###########################
+    #      My Evaluating      #
+    ###########################
     
+    logger.info('==> My Evaluating ...')
 
+    my_key_list = []
+    for key in key_list:
+        if key not in my_key_list:
+            my_key_list.append(key)
+    my_ley_list = np.array(my_key_list)
 
-
-    logger.info('==> Evaluating ...')
-    map_list = []
-    for pasta in tqdm(range(sum(list(cfg.DATA.NUM_PASTAS.values()))), ncols=40):
-        map_res = calc_map(gt_pasta_data, key_list, human_bboxes_list, pasta_score_list, pasta, pasta_recall_total)
-        map_list.append(map_res)
-    map_list = np.array(map_list)
-    if cfg.BENCHMARK.SHOW_ACTION_RES:
-        logger.info('detailed pasta results:')
-        for pasta_idx, pasta_map in enumerate(map_list):
-            pasta_name = pasta_name_list[pasta_idx]
-            logger.info('%s: %2.2f' % (pasta_name, pasta_map*100))
-
-    logger.info('mAP Results:')
-    map_w_no_interaction_list = []
-    map_wo_no_interaction_list = []
+    my_map_list = []
     for part_idx in range(len(cfg.DATA.PASTA_NAMES)):
-        map_w_no_interaction = np.nanmean(map_list[pasta_ranges[part_idx][0]:pasta_ranges[part_idx][1]]) * 100
-        map_wo_no_interaction = np.nanmean(map_list[pasta_ranges[part_idx][0]:pasta_ranges[part_idx][1]-1]) * 100
-        map_w_no_interaction_list.append(map_w_no_interaction)
-        map_wo_no_interaction_list.append(map_wo_no_interaction)
-        logger.info('%s: %2.2f, %2.2f' % (cfg.DATA.PASTA_NAMES[part_idx], map_w_no_interaction, map_wo_no_interaction))
+        aps = []
+        for pasta_idx in range(pasta_range_starts[part_idx], pasta_range_ends[part_idx]):
+            pasta_score = pasta_score_list[:, pasta_idx]
+            gt_pasta = []
+            for key in my_key_list:
+                if pasta_idx in gt_pasta_data and key in gt_pasta_data[pasta_idx]:
+                    gt_pasta.append(1)
+                else:
+                    gt_pasta.append(0)
+            gt_pasta = np.array(gt_pasta)
+            if gt_pasta.sum() < 1:
+                continue
+            ap = my_calc_ap(gt_pasta, pasta_score)
+            aps.append(ap)
+        aps = np.array(aps)
+        map = aps.mean()
+        my_map_list.append(map)
     
-    total_w_no_interaction = np.nanmean(np.array(map_w_no_interaction_list))
-    total_wo_no_interaction = np.nanmean(np.array(map_wo_no_interaction_list))
-    logger.info('pasta: %2.2f, %2.2f' % (total_w_no_interaction, total_wo_no_interaction))
-    verb_map_list = []
-    for verb in tqdm(range(cfg.DATA.NUM_VERBS), ncols=40):
-        map_res = calc_map(gt_verb_data, key_list, human_bboxes_list, verb_score_list, verb, verb_recall_total)
-        verb_map_list.append(map_res)
+    vaps = []
+    for verb_idx in range(cfg.DATA.NUM_VERBS):
+        verb_score = verb_score_list[:, verb_idx]
+        gt_verb = []
+        for key in my_key_list:
+            if verb_idx in gt_verb_data and key in gt_verb_data[verb_idx]:
+                gt_verb.append(1)
+            else:
+                gt_verb.append(0)
+        gt_verb = np.array(gt_verb)
+        if gt_verb.sum() < 1:
+            continue
+        vap = my_calc_ap(gt_verb, verb_score)
+        vaps.append(vap)
+    vaps = np.array(vaps)
+    vmap = vaps.mean()
 
-    verb_mean_ap = np.nanmean(np.array(verb_map_list)) * 100
-    verb_mean_ap_wo_no_interaction = np.nanmean(np.array(verb_map_list[:57] + verb_map_list[58:])) * 100
-    logger.info('verb-157: %2.2f, %2.2f' % (verb_mean_ap, verb_mean_ap_wo_no_interaction))
+    for part_idx in range(len(cfg.DATA.PASTA_NAMES)):
+        logger.info('%s: %2.2f' % (cfg.DATA.PASTA_NAMES[part_idx], my_map_list[part_idx] * 100))
+    logger.info('verb: %2.2f' % (vmap * 100))
 
-    verb_mean_ap_117 = np.nanmean(np.array(verb_map_list[:117])) * 100
-    verb_mean_ap_117_wo_no_interaction = np.nanmean(np.array(verb_map_list[:57] + verb_map_list[58:117])) * 100
-    logger.info('verb-117: %2.2f, %2.2f' % (verb_mean_ap_117, verb_mean_ap_117_wo_no_interaction))
+    ###########################
     
-    import ipdb; ipdb.set_trace()
-    if cfg.BENCHMARK.SHOW_ACTION_RES:
-        logger.info('detailed verb results:')
-        for verb_idx, verb_map in enumerate(verb_map_list):
-            verb_name = verb_name_list[verb_idx]
-            logger.info('%s: %2.2f' % (verb_name, verb_map*100))
+    # logger.info('==> Evaluating ...')
+    # map_list = []
+    # for pasta in tqdm(range(sum(list(cfg.DATA.NUM_PASTAS.values()))), ncols=40):
+    #     map_res = calc_map(gt_pasta_data, key_list, human_bboxes_list, pasta_score_list, pasta, pasta_recall_total)
+    #     map_list.append(map_res)
+    # map_list = np.array(map_list)
+    # if cfg.BENCHMARK.SHOW_ACTION_RES:
+    #     logger.info('detailed pasta results:')
+    #     for pasta_idx, pasta_map in enumerate(map_list):
+    #         pasta_name = pasta_name_list[pasta_idx]
+    #         logger.info('%s: %2.2f' % (pasta_name, pasta_map*100))
 
-    return total_w_no_interaction, verb_mean_ap, map_w_no_interaction_list, map_wo_no_interaction_list
+    # logger.info('mAP Results:')
+    # map_w_no_interaction_list = []
+    # map_wo_no_interaction_list = []
+    # for part_idx in range(len(cfg.DATA.PASTA_NAMES)):
+    #     map_w_no_interaction = np.nanmean(map_list[pasta_ranges[part_idx][0]:pasta_ranges[part_idx][1]]) * 100
+    #     map_wo_no_interaction = np.nanmean(map_list[pasta_ranges[part_idx][0]:pasta_ranges[part_idx][1]-1]) * 100
+    #     map_w_no_interaction_list.append(map_w_no_interaction)
+    #     map_wo_no_interaction_list.append(map_wo_no_interaction)
+    #     logger.info('%s: %2.2f, %2.2f' % (cfg.DATA.PASTA_NAMES[part_idx], map_w_no_interaction, map_wo_no_interaction))
+    
+    # total_w_no_interaction = np.nanmean(np.array(map_w_no_interaction_list))
+    # total_wo_no_interaction = np.nanmean(np.array(map_wo_no_interaction_list))
+    # logger.info('pasta: %2.2f, %2.2f' % (total_w_no_interaction, total_wo_no_interaction))
+    # verb_map_list = []
+    # for verb in tqdm(range(cfg.DATA.NUM_VERBS), ncols=40):
+    #     map_res = calc_map(gt_verb_data, key_list, human_bboxes_list, verb_score_list, verb, verb_recall_total)
+    #     verb_map_list.append(map_res)
+
+    # verb_mean_ap = np.nanmean(np.array(verb_map_list)) * 100
+    # verb_mean_ap_wo_no_interaction = np.nanmean(np.array(verb_map_list[:57] + verb_map_list[58:])) * 100
+    # logger.info('verb-157: %2.2f, %2.2f' % (verb_mean_ap, verb_mean_ap_wo_no_interaction))
+
+    # verb_mean_ap_117 = np.nanmean(np.array(verb_map_list[:117])) * 100
+    # verb_mean_ap_117_wo_no_interaction = np.nanmean(np.array(verb_map_list[:57] + verb_map_list[58:117])) * 100
+    # logger.info('verb-117: %2.2f, %2.2f' % (verb_mean_ap_117, verb_mean_ap_117_wo_no_interaction))
+    
+    # # import ipdb; ipdb.set_trace()
+    # if cfg.BENCHMARK.SHOW_ACTION_RES:
+    #     logger.info('detailed verb results:')
+    #     for verb_idx, verb_map in enumerate(verb_map_list):
+    #         verb_name = verb_name_list[verb_idx]
+    #         logger.info('%s: %2.2f' % (verb_name, verb_map*100))
+
+    # return total_w_no_interaction, verb_mean_ap, map_w_no_interaction_list, map_wo_no_interaction_list
+    return

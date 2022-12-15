@@ -12,15 +12,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 import os
-import os
 import clip
 import torch
 from PIL import Image , ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-#from torchvision.datasets import CIFAR100
-
-
-from .resnet_v1.resnetv1_torch import resnet50 as resnet50_v1
 
 class pasta_res50(nn.Module):
 
@@ -55,341 +50,130 @@ class pasta_res50(nn.Module):
         self.module_trained = cfg.MODEL.MODULE_TRAINED
         self.dropout_rate   = cfg.MODEL.DROPOUT
         self.pasta_language_matrix  = torch.from_numpy(np.load(cfg.DATA.PASTA_LANGUAGE_MATRIX_PATH)).cuda()
-        self.resnet50 = resnet50_v1()
-        self.resnet50.conv1.padding = 0
 
         self.clip_dim = 512
 
         ########################
-        # Building the network #
-        ########################
-
-        ########################
-        # CLIP network #
+        #     CLIP network     #
         ########################
         # The person's [classes] is [doing].
-        # self.classes = ['head', 'left arm', 'right arm', 'left hand', 'right hand', 'hip', 'left leg', 'right leg', 'left foot', 'right foot']
         self.classes = ['head', 'arm', 'hand', 'hip', 'leg', 'foot']
-        self.classes.reverse()#conform to config.py
+        self.classes.reverse()   # conform to config.py
         self.characteristics = {
         'head' :  {'eating', 'inspecting', 'talking with something', 'talking to something', 'closing with something', 'kissing', 'put somthing over', 'licking', 'blowing', 'drinking with something', 'smelling', 'wearing', 'listening', 'doing nothing'}, 
-        #'left arm' : {'carrying something', 'closing to something', 'hugging', 'swinging', 'doing nothing'}, 
-        #'right arm' : {'carrying something', 'closing to something', 'hugging', 'swinging', 'doing nothing'}, 
         'arm' : {'carrying something', 'close to something', 'hugging', 'swinging', 'crawling', 'dancing', 'playing martial art', 'doing nothing'},
-        #'left hand' : {'holding something', 'carrying something', 'reaching for something', 'touching', 'putting on something', 'twisting', 'wearing something', 'throwing something', 'throwing out', 'writing on something', 'pointing with something', 'pointing to something', 'using something to point to', 'pressing', 'squeezing', 'scratching', 'pinching', 'gesturing to something', 'push ing', 'pulling', 'pulling with something', 'washing', 'washing with something',
-        #                'holding in both hands', 'lifting', 'raising', 'feeding', 'cutting with something', 'catching with something', 'pouring into', 'doing nothing'}, 
-        #'right hand' : {'holding something', 'carrying something', 'reaching for something', 'touching', 'putting on something', 'twisting', 'wearing something', 'throwing something', 'throwing out', 'writing on something', 'pointing with something', 'pointing to something', 'using something to point to', 'pressing', 'squeezing', 'scratching', 'pinching', 'gesturing to something', 'push ing', 'pulling', 'pulling with something', 'washing', 'washing with something',
-        #                'holding in both hands', 'lifting', 'raising', 'feeding', 'cutting with something', 'catching with something', 'pouring into', 'doing nothing'}, 
-        'hand' : {'holding something', 'carrying something', 'reaching for something', 'touching', 'putting on something', 'twisting', 'wearing something', 'throwing something', 'throwing out something', 'writting on something', 'pointing with something', 'pointing to something', 'using something to point to something', 'pressing something', 'squeezing something', 'scratching something', 'pinching something', 'gesturing to something', 'pushing something', 'pulling something', 'pulling with something', 'washing something', 'washing with something',
+       'hand' : {'holding something', 'carrying something', 'reaching for something', 'touching', 'putting on something', 'twisting', 'wearing something', 'throwing something', 'throwing out something', 'writting on something', 'pointing with something', 'pointing to something', 'using something to point to something', 'pressing something', 'squeezing something', 'scratching something', 'pinching something', 'gesturing to something', 'pushing something', 'pulling something', 'pulling with something', 'washing something', 'washing with something',
                     'holding something in both hands', 'lifting something', 'raising something', 'feeding', 'cutting with something', 'catching with something', 'pouring something into something', 'crawling ', 'dancing', 'playing martial art', 'doing nothing'},
         'hip' : {'sitting on something', 'sitting in something', 'sitting beside something', 'close with something', 'bending', 'doing nothing'}, 
-        #'left leg' : {'walking with something', 'walking to something', 'running with something', 'running to something', 'jumping with something', 'closing with something', 'straddling', 'jumping down', 'walking away', 'doing nothing'}, 
-        #'right leg' : {'walking with something', 'walking to something', 'running with something', 'running to something', 'jumping with something', 'closing with something', 'straddling', 'jumping down', 'walking away', 'doing nothing'}, 
         'leg' : {'walking with something', 'walking to something', 'running with something', 'running to something', 'jumping with something', 'close with something', 'straddling something', 'jumping down', 'walking away', 'bending', 'kneeling', 'crawling', 'dancing', 'playing martial art', 'doing nothing'},
-        #'left foot' : {'standing on something', 'stepping on something', 'walkling with something', 'walking to something', 'running with something', 'running to something', 'dribbling', 'kicking', 'jumping down', 'jumping with something', 'walking away', 'doing nothing'}, 
-        #'right foot' : {'standing on something', 'stepping on something', 'walkling with something', 'walking to something', 'running with something', 'running to something', 'dribbling', 'kicking', 'jumping down', 'jumping with something', 'walking away', 'doing nothing'}}
         'foot' : {'standing on something', 'treading on something', 'walking with something', 'walking to something', 'running with something', 'running to something', 'dribbling', 'kicking something', 'jumping down', 'jumping with something', 'walking away', 'crawling', 'dancing', 'falling down', 'playing martial art', 'doing nothing'}}
 
         # Load the model
         device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, self.preprocess = clip.load('ViT-B/32', device)
         self.model
-        # Download the dataset
-        # cifar100 = CIFAR100(root=os.path.expanduser("~/.cache"), download=True, train=False)
 
-        # Prepare the inputs
-        # image, class_id = cifar100[3637]
-        # image_input = preprocess(image).unsqueeze(0).to(device)
-        # text_inputs = torch.cat([clip.tokenize(f"a photo of a {c}") for c in cifar100.classes]).to(device)
+        # CLIP feature to PaSta feature.
 
-        # Calculate features
-        # with torch.no_grad():
-        #     image_features = model.encode_image(image_input)
-        #     text_features = model.encode_text(text_inputs)
-
-
-
-
-
-
-        # ResNet-style image head.
-        self.image_to_head = nn.Sequential(
-            # pad with 0
-            nn.ConstantPad2d((0, 0, 3, 3), 0),
-            nn.ConstantPad2d((3, 3, 0, 0), 0),
-
-            # tmp_conv,
-            self.resnet50.conv1,
-            self.resnet50.bn1,
-            self.resnet50.relu,
-
-            # pad with 0
-            nn.ConstantPad2d((0, 0, 1, 1), 0),
-            nn.ConstantPad2d((1, 1, 0, 0), 0),
-            
-            # max pooling
-            torch.nn.MaxPool2d(kernel_size=[3, 3], stride=2),
-
-            self.resnet50.layer1,
-            self.resnet50.layer2,
-            self.resnet50.layer3 )
-
-        # Human feature extractor.
-        self.resnet_layer4 = self.resnet50.layer4
-
-        # PaSta classifier.
-        self.fc7_parts   = nn.ModuleList(
-                                            [
-                                                nn.Sequential(
-                                                    nn.Linear(self.num_fc_parts[pasta_idx], self.num_fc),
-                                                    nn.ReLU(inplace=True),
-                                                    nn.Dropout(self.dropout_rate),
-                                                    nn.Linear(self.num_fc, self.num_fc),
-                                                    nn.ReLU(inplace=True),
-                                                    nn.Dropout(self.dropout_rate)
-                                                ) 
-                                                for pasta_idx in range(len(self.pasta_idx2name))
-                                            ]
-                                        )
-
-        self.part_cls_scores = nn.ModuleList(
-                                                [
-                                                    nn.Linear(self.num_fc, self.num_pastas[pasta_idx])
-                                                    for pasta_idx in range(len(self.pasta_idx2name))
-                                                ]
-                                            )
-
-        # CLIP feature to PaSta feature
         self.clip2pasta = nn.ModuleList(
                                             [
-                                                nn.Linear(self.clip_dim, self.num_fc)
+                                                nn.Sequential(
+                                                    nn.Linear(self.clip_dim, self.num_fc),
+                                                    nn.ReLU(inplace=True),
+                                                    nn.Linear(self.num_fc, self.num_fc),
+                                                    nn.ReLU(inplace=True),
+                                                    nn.Linear(self.num_fc, self.num_pastas[pasta_idx])
+                                                )
                                                 for pasta_idx in range(len(self.pasta_idx2name))
                                             ]
                                         )
         
         # Verb classifier.
-        if cfg.MODEL.VERB_ONE_MORE_FC:
-            self.verb_cls_scores = nn.Sequential(
-                            nn.Linear(len(self.pasta_idx2name) * self.num_fc, self.num_fc),
-                            nn.ReLU(inplace=True),
-                            nn.Dropout(self.dropout_rate),
-                            nn.Linear(self.num_fc, self.num_verbs)
-                        ) 
-        else:
-            self.verb_cls_scores = nn.Linear(len(self.pasta_idx2name) * self.num_fc, self.num_verbs)
+        
+        self.verb_cls_scores = nn.Sequential(
+                        nn.Linear(len(self.pasta_idx2name) * self.num_fc, self.num_fc),
+                        nn.ReLU(inplace=True),
+                        nn.Dropout(self.dropout_rate),
+                        nn.Linear(self.num_fc, self.num_verbs)
+                    ) 
 
         ##############################
         # Freeze the useless params. #
         ##############################
-
-        # if cfg.TRAIN.FREEZE_BACKBONE:
-        #     for p in self.image_to_head.parameters():
-        #         p.requires_grad = False
-        #     if cfg.TRAIN.FREEZE_RES4:
-        #         for p in self.resnet_layer4.parameters():
-        #             p.requires_grad = False
             
-        # for pasta_idx in range(len(self.pasta_idx2name)):
-        #     for p in self.fc7_parts[pasta_idx].parameters():
-        #         p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
-        #     for p in self.part_cls_scores[pasta_idx].parameters():
-        #         p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
+        for pasta_idx in range(len(self.pasta_idx2name)):
+            for p in self.clip2pasta[pasta_idx].parameters():
+                p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
 
-        # for p in self.verb_cls_scores.parameters():
-        #     p.requires_grad = 'verb' in self.module_trained
+        for p in self.verb_cls_scores.parameters():
+            p.requires_grad = 'verb' in self.module_trained
 
-        ###############################################
-        # Building the extractor of pose map feature. #
-        ###############################################
-
-        if cfg.MODEL.POSE_MAP:
-            self.pool2_flat_pose_maps = nn.ModuleList(
-                                                [
-                                                    nn.Sequential(nn.Conv2d(1, 32, (5, 5), stride=(1, 1), padding=0),
-                                                                  nn.ReLU(inplace=True),
-                                                                  nn.MaxPool2d((2, 2)),
-
-                                                                  nn.Conv2d(32, 16, (5, 5), stride=(1, 1), padding=0),
-                                                                  nn.ReLU(inplace=True),
-                                                                  nn.MaxPool2d((2, 2)))
-                                                    for pasta_idx in range(len(self.pasta_idx2name))
-                                                ]
-                                            )
-            for pasta_idx in range(len(self.pasta_idx2name)):
-                for p in self.pool2_flat_pose_maps[pasta_idx].parameters():
-                    p.requires_grad = self.pasta_idx2name[pasta_idx] in self.module_trained
-                    
-
-    def _crop_pool_layer(self, bottom, rois, max_pool=False):
-        '''
-        @input:
-            bottom: [1, 1024, H, W]
-            rois  : [1, N, 5]
-        @output: 
-            crops : [N, 1024, 7, 7]
-        '''
-        # implement it using stn
-        # box to affine
-        # input (x1,y1,x2,y2)
-        """
-        [  x2-x1             x1 + x2 - W + 1  ]
-        [  -----      0      ---------------  ]
-        [  W - 1                  W - 1       ]
-        [                                     ]
-        [           y2-y1    y1 + y2 - H + 1  ]
-        [    0      -----    ---------------  ]
-        [           H - 1         H - 1      ]
-        """
-        rois = rois.detach()
-
-        x1 = (rois[:, 1::4] / 16.0).squeeze(1)
-        y1 = (rois[:, 2::4] / 16.0).squeeze(1)
-        x2 = (rois[:, 3::4] / 16.0).squeeze(1)
-        y2 = (rois[:, 4::4] / 16.0).squeeze(1)
-        height = bottom.size(2)
-        width  = bottom.size(3)
-
-        # affine theta
-        theta = Variable(rois.data.new(rois.size(0), 2, 3).zero_())
-        theta[:, 0, 0] = (x2 - x1) / (width - 1) 
-        theta[:, 0 ,2] = (x1 + x2 - width + 1) / (width - 1) 
-        theta[:, 1, 1] = (y2 - y1) / (height - 1) 
-        theta[:, 1, 2] = (y1 + y2 - height + 1) / (height - 1) 
-
-        if max_pool:
-            pre_pool_size = self.cfg.POOLING_SIZE * 2
-            grid = F.affine_grid(theta, torch.Size((rois.size(0), 1, pre_pool_size, pre_pool_size)), align_corners=False)
-
-            all_roi = []
-            for j in range(rois.size(0)):
-                _grid = grid.narrow(0, j, 1)
-                _roi_feature = F.grid_sample(bottom.view(1,bottom.size(1), bottom.size(2), bottom.size(3)), _grid, align_corners=False)
-                all_roi.append(_roi_feature)
-            crops = torch.cat(all_roi)
-            # crops = F.grid_sample(bottom.expand(rois.size(0), bottom.size(1), bottom.size(2), bottom.size(3)), grid)
-            crops = F.max_pool2d(crops, 2, 2)
-        else:
-            grid = F.affine_grid(theta, torch.Size((rois.size(0), 1, self.cfg.POOLING_SIZE, self.cfg.POOLING_SIZE)), align_corners=False)
-
-            all_roi = []
-            for j in range(rois.size(0)):
-                _grid = grid.narrow(0, j, 1)
-                _roi_feature = F.grid_sample(bottom.view(1,bottom.size(1), bottom.size(2), bottom.size(3)), _grid, align_corners=False)
-                all_roi.append(_roi_feature)
-            crops = torch.cat(all_roi)
-            # crops = F.grid_sample(bottom.expand(rois.size(0), bottom.size(1), bottom.size(2), bottom.size(3)), grid)
-
-        return crops
 
     # image/frame --> resnet --> part RoI features + pose map feature --> PaSta (Part States) recognition --> verb (whole body action) recognition
     def forward(self, image, annos):
-        # Extract the feature of skeleton image.
-        # if self.cfg.MODEL.POSE_MAP:
-        #     skeleton_feats = []
-        #     for pasta_idx in range(len(self.pasta_idx2name)):
-        #         skeleton_feat = self.pool2_flat_pose_maps[pasta_idx](annos['skeletons'])
-        #         skeleton_feat = skeleton_feat.view(skeleton_feat.shape[0], -1)
-        #         skeleton_feats.append(skeleton_feat)
-
-        # head = self.image_to_head(image)
-
-        # # scene/context (whole image) feature
-        # f_scene = torch.mean(head, [2, 3])
-
-        # human roi feature
-        # f_human_roi = self._crop_pool_layer(head, annos['human_bboxes'])
-        # f_human = self.resnet_layer4(f_human_roi)
-        # f_human = torch.mean(f_human, [2, 3])
-        
-        #############################################################################################
-        #  To simplify the model, the interacted object feature is not leveraged here.              #        
-        #  You could also utilize object to further enhance the PaSta and verb recognition for HOI. #
-        #  The object boxes can be obtained from your own detectors based on COCO, LVIS, FSOD, etc. #
-        #  More details about HOI detection please refer to our survey repo:                        #
-        #  https://github.com/DirtyHarryLYL/HOI-Learning-List                                       #
-        #############################################################################################
-        # object roi feature
-        # f_object_roi = self._crop_pool_layer(head, annos['object_bboxes']) # detected boxes from detectors
-        # f_object = self.resnet_layer4(f_object_roi)
-        # f_object = torch.mean(f_object, [2, 3])
-
-        # # part roi feature
-        # if self.cfg.MODEL.PART_ROI_ENABLE:
-        #     f_parts_roi = []
-        #     for part_idx in range(self.num_parts):
-        #         f_part_roi = torch.mean(self._crop_pool_layer(head, annos['part_bboxes'][:, part_idx, :]), [2, 3])
-        #         f_parts_roi.append(f_part_roi)
-            
-        #     f_scene_for_part = f_scene.repeat([f_parts_roi[0].shape[0], 1])
-        #     f_base = [f_human, f_scene_for_part]
-        #     f_parts_agg = []
-        #     for part_agg_rule in self.part_agg_rule:
-        #         f_part = [f_parts_roi[part_idx] for part_idx in part_agg_rule]
-        #         f_part = f_part + f_base
-        #         f_part = torch.cat(f_part, 1)
-        #         f_parts_agg.append(f_part)
-        # else:
-        #     f_scene_for_part = f_scene.repeat([f_human.shape[0], 1])
-        #     f_base = torch.cat([f_human, f_scene_for_part], 1)
-            # f_parts_agg = [f_base for pasta_idx in range(len(self.cfg.DATA.PASTA_NAMES))]
             
         f_parts = []
         s_parts = []
         p_parts = []
 
-        # # classify the part states
-        # for part_idx, f_part in enumerate(f_parts_agg):
-        #     if self.cfg.MODEL.POSE_MAP:
-        #         f_part_cat  = torch.cat([f_part, skeleton_feats[part_idx]], 1)
-        #         f_part_fc7  = self.fc7_parts[part_idx](f_part_cat)
-        #     else:
-        #         f_part_fc7  = self.fc7_parts[part_idx](f_part)
-                
-        #     s_part  = self.part_cls_scores[part_idx](f_part_fc7)
-        #     p_part  = torch.sigmoid(s_part)
-        #     f_parts.append(f_part_fc7)
-        #     s_parts.append(s_part)
-        #     p_parts.append(p_part)
-
         # f_part_fc7: 1 x num_fc
         # s_part: 1 x num_pastas
         # p_part = sigmoid(s_part)
-        
 
-        # text_inputs = torch.cat([clip.tokenize(f"the person's {classes}")])
         device = "cuda" if torch.cuda.is_available() else "cpu"
         for class_id, classes in enumerate(self.classes):
+
             try:
                 ims = Image.open(image[0])
             except Exception as e:
                 print(image[0],e)
-            image_input = self.preprocess(Image.open(image[0])).unsqueeze(0).to(device)
-            # text_inputs = [clip.tokenize(f"there is no {classes} in the image")].to(device)
+
+            ################################
+            #    Image and Text Feature    #
+            ################################
+
+            # image_input = self.preprocess(Image.open(image[0])).unsqueeze(0).to(device)
+            # text_inputs = [clip.tokenize(f"there is no {classes} in the image")]
             # for characteristics in self.characteristics[classes]:
-            #     text_inputs = torch.cat([clip.tokenize(f"the person's {classes} is {characteristics}")])
-            text_inputs = [clip.tokenize(f"there is no {classes} in the image")]
-            for characteristics in self.characteristics[classes]:
-                text_inputs.append(clip.tokenize(f"the person's {classes} is {characteristics}"))
-            text_inputs = torch.cat(text_inputs,dim=0).to(device)
+            #     text_inputs.append(clip.tokenize(f"the person's {classes} is {characteristics}"))
+            # text_inputs = torch.cat(text_inputs,dim=0).to(device)
+
+            # with torch.no_grad():
+            #     image_features = self.model.encode_image(image_input).float()
+            #     text_features = self.model.encode_text(text_inputs).float()
+
+            # image_features = self.clip2pasta[class_id](image_features)
+
+            # image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+            # text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+            # similarity = (100.0 * image_features @ text_features.T)
+
+            # now_num_pasta = (len(similarity[0]) - 1)
+            # s_part = torch.zeros(now_num_pasta)
+            # for idx in range(now_num_pasta):
+            #     if idx == 0:
+            #         s_part[now_num_pasta - 1] = (similarity[0][0] + similarity[0][now_num_pasta]) / 2
+            #     else:
+            #         s_part[idx - 1] = similarity[0][idx]
+            # s_part = s_part - torch.mean(s_part)
+            # p_part  = torch.sigmoid(s_part)
+
+            ################################
+
+            ################################
+            #      Only Image Feature      #
+            ################################
+
+            image_input = self.preprocess(Image.open(image[0])).unsqueeze(0).to(device)
 
             with torch.no_grad():
-                image_features = self.model.encode_image(image_input)
-                text_features = self.model.encode_text(text_inputs)
-            image_features = image_features.float()
-            text_features = text_features.float()
-            image_features = self.clip2pasta[class_id](image_features)
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            similarity = (100.0 * image_features @ text_features.T)
-            now_num_pasta = (len(similarity[0]) - 1)
-            s_part = torch.zeros(now_num_pasta)
-            for idx in range(now_num_pasta):
-                if idx == 0:
-                    s_part[now_num_pasta - 1] = (similarity[0][0] + similarity[0][now_num_pasta])/2
-                else:
-                    s_part[idx - 1] = similarity[0][idx]
-            s_part = s_part - torch.mean(s_part)
-            p_part  = torch.sigmoid(s_part)
+                image_features = self.model.encode_image(image_input).float().to(device)
+
+            s_part = self.clip2pasta[class_id](image_features)[0]
+            p_part = torch.sigmoid(s_part)
+
+            ################################
+
             f_parts.append(image_features)
             s_parts.append(s_part.to(device))
             p_parts.append(p_part)
@@ -397,12 +181,11 @@ class pasta_res50(nn.Module):
         f_pasta_visual = torch.cat(f_parts, 1)
         p_pasta = torch.cat(p_parts, 0)
 
-
-
         # s_verb: 1 x num_verbs
         # print(f_pasta_visual.size()) 1*3072
         # print(p_pasta.size()) 93
         # print(len(self.pasta_idx2name) * self.num_fc) 3072
+
         # classify the verbs
         s_verb = self.verb_cls_scores(f_pasta_visual)
         p_verb = torch.sigmoid(s_verb)
@@ -415,8 +198,7 @@ class pasta_res50(nn.Module):
         
         # return the pasta feature and pasta probs if in test/inference mode, 
         # else return the pasta scores for loss input.
-        # print(p_pasta)      
-        import ipdb; ipdb.set_trace()
+        #import ipdb; ipdb.set_trace()
 
         if not self.training:
             return f_pasta, p_pasta.to(device), p_verb

@@ -45,8 +45,8 @@ def test(cfg, net, test_loader, output_dir, logger):
             else:
                 annos[key] = annos[key].cuda()
                 annos[key] = annos[key].squeeze(0)
-        annos['human_bboxes'] = torch.cat([torch.zeros(annos['human_bboxes'].shape[0], 1).cuda(), annos['human_bboxes']], 1)
-        annos['part_bboxes'] = torch.cat([torch.zeros(annos['part_bboxes'].shape[0], annos['part_bboxes'].shape[1], 1).cuda(), annos['part_bboxes']], 2)
+        # annos['human_bboxes'] = torch.cat([torch.zeros(annos['human_bboxes'].shape[0], 1).cuda(), annos['human_bboxes']], 1)
+        # annos['part_bboxes'] = torch.cat([torch.zeros(annos['part_bboxes'].shape[0], annos['part_bboxes'].shape[1], 1).cuda(), annos['part_bboxes']], 2)
 
         _, p_pasta, p_verb = net(image, annos)
         p_pasta = p_pasta.view(1,-1)
@@ -64,7 +64,7 @@ def test(cfg, net, test_loader, output_dir, logger):
         os.makedirs(out_dir, exist_ok=True)
 
         h = h5py.File(out_path, 'w')
-        h.create_dataset('human_bboxes', data=human_bboxes)
+        # h.create_dataset('human_bboxes', data=human_bboxes)
         h.create_dataset('pasta_score', data=p_pasta)
         h.create_dataset('verb_score', data=p_verb)
         h.close()
@@ -93,21 +93,21 @@ if __name__ == "__main__":
     logger.info('==> cfg:')
     logger.info(cfg)
 
-    if args.eval:
-        os.makedirs(cfg.TEST.OUTPUT_DIR, exist_ok=True)
+    # if args.eval:
+    #     os.makedirs(cfg.TEST.OUTPUT_DIR, exist_ok=True)
 
-        # model preparing
-        net = pasta_res50(cfg)
-        net, _, _, _ = load_model(cfg, net, None, None, cfg.TEST.WEIGHT_PATH, mode='test')
-        net.eval()
-        net = net.cuda()
-        test_loader = torch.utils.data.DataLoader(dataset=hake_test(cfg), 
-                                                  batch_size=1, 
-                                                  shuffle=False, 
-                                                  collate_fn=custom_collate, 
-                                                  num_workers=1)
+    #     # model preparing
+    #     net = pasta_res50(cfg)
+    #     net, _, _, _ = load_model(cfg, net, None, None, cfg.TEST.WEIGHT_PATH, mode='test')
+    #     net.eval()
+    #     net = net.cuda()
+    #     test_loader = torch.utils.data.DataLoader(dataset=hake_test(cfg), 
+    #                                               batch_size=1, 
+    #                                               shuffle=False, 
+    #                                               collate_fn=custom_collate, 
+    #                                               num_workers=1)
 
-        test(cfg, net, test_loader, cfg.TEST.OUTPUT_DIR, logger)
+    #     test(cfg, net, test_loader, cfg.TEST.OUTPUT_DIR, logger)
     
     if args.benchmark:
         benchmark(cfg.TEST.OUTPUT_DIR, cfg, logger)

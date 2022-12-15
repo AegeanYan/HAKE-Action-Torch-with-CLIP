@@ -4,6 +4,7 @@ import pickle
 import base64
 import clip
 import torch
+import h5py
 # def str2obj(strr):
 #     return pickle.loads(base64.b64decode(strr))
 
@@ -26,6 +27,10 @@ import torch
 # out = torch.cat(text_inputs,dim = 0)
 # print(out.size())
 
-from tools.benchmark import benchmark
+f = h5py.File("/data/haotian/HAKE-Action-Torch/results/finetune-foot/model_50000.pth_results/collect/HOI_PVP_00029386.jpg.hdf5", "r")    # mode = {'w', 'r', 'a'}
 
-benchmark()
+# Print the keys of groups and datasets under '/'.
+print(f.filename, ":")
+print([key for key in f.keys()], "\n")  
+d = f["verb_score"]
+print(d[:])
